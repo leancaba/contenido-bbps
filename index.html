@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contenido BBPS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,800;125,900&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <h1>CONTENIDO BBPS</h1>
+    <span id="modo" class="modo" hidden title="Los datos se guardan solo en este navegador">Modo local</span>
+  </header>
+
+  <main>
+    <section class="sorteos">
+      <div class="bloque">
+        <button class="dado" data-accion="sortear" data-tipo="reel" aria-label="Sortear locales para Reel"></button>
+        <div class="centro">
+          <h2>REEL</h2>
+          <ul class="slots" id="slots-reel"></ul>
+        </div>
+        <button class="ok" data-accion="ok" data-tipo="reel" disabled>OK</button>
+        <p class="msg" id="msg-reel" role="status"></p>
+      </div>
+
+      <div class="bloque">
+        <button class="dado" data-accion="sortear" data-tipo="stories" aria-label="Sortear locales para Stories"></button>
+        <div class="centro">
+          <h2>STORIES</h2>
+          <ul class="slots" id="slots-stories"></ul>
+        </div>
+        <button class="ok" data-accion="ok" data-tipo="stories" disabled>OK</button>
+        <p class="msg" id="msg-stories" role="status"></p>
+      </div>
+    </section>
+
+    <section class="historiales">
+      <div class="hist">
+        <h2>HISTORIAL REEL</h2>
+        <div class="tabla" id="hist-reel"></div>
+      </div>
+
+      <div class="buscador">
+        <label class="buscar">
+          <input id="buscar" type="search" placeholder="Buscá un local..." autocomplete="off">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="14" cy="10" r="6.5"/><path d="M9.5 14.5 3 21"/></svg>
+        </label>
+        <div id="resultados" class="resultados"><p class="vacio">Escribí el nombre para ver sus últimas apariciones.</p></div>
+      </div>
+
+      <div class="hist">
+        <h2>HISTORIAL STORIES</h2>
+        <div class="tabla" id="hist-stories"></div>
+      </div>
+    </section>
+
+    <button class="btn-panel" id="abrir-panel">PANEL DE LOCALES</button>
+  </main>
+
+  <!-- Panel de locales -->
+  <div class="panel" id="panel" hidden>
+    <div class="panel-inner">
+      <header class="panel-top">
+        <h1>PANEL DE LOCALES</h1>
+        <button class="cerrar" id="cerrar-panel" aria-label="Cerrar panel"></button>
+      </header>
+      <form class="alta" id="form-local">
+        <input id="nuevo-nombre" placeholder="Nombre del local" autocomplete="off" required>
+        <select id="nueva-categoria" required></select>
+        <input id="categoria-libre" placeholder="Nueva categoría" autocomplete="off" hidden>
+        <button type="submit">Agregar un local</button>
+      </form>
+      <p class="contador" id="contador"></p>
+      <ul class="lista-locales" id="lista-locales"></ul>
+    </div>
+  </div>
+
+  <!-- Contraseña (solo si se configura APP_PASSWORD en Vercel) -->
+  <div class="login" id="login" hidden>
+    <form id="form-login">
+      <h2>CONTENIDO BBPS</h2>
+      <input id="pass" type="password" placeholder="Contraseña" required>
+      <button type="submit">Entrar</button>
+      <p class="msg" id="msg-login"></p>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
