@@ -89,6 +89,19 @@
     </form>
   </div>
 
+  <!-- Elegir un local a mano -->
+  <div class="picker" id="picker" hidden>
+    <div class="picker-caja" role="dialog" aria-modal="true" aria-labelledby="picker-titulo">
+      <header>
+        <h2 id="picker-titulo">Elegir local</h2>
+        <button class="cerrar chico" id="cerrar-picker" aria-label="Cerrar"></button>
+      </header>
+      <input id="picker-buscar" type="search" placeholder="Buscá un local o una categoría..." autocomplete="off">
+      <ul class="picker-lista" id="picker-lista"></ul>
+      <button class="vaciar" id="vaciar-slot" type="button">Vaciar este casillero</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status"></div>
   <script src="app.js"></script>
 </body>

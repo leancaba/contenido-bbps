@@ -11,6 +11,12 @@ app.js          reglas, sorteo, historial, buscador, panel
 api/data.js     función serverless de Vercel (lee/guarda en Upstash Redis)
 ```
 
+## Edición manual
+
+Después de tirar el dado (o desde los casilleros vacíos) se puede tocar cualquier casillero y elegir otro local de la lista, con buscador por nombre o categoría. El selector marca los locales que ya están elegidos y los que salieron hace poco. También se puede vaciar un casillero.
+
+El OK se habilita cuando están todos los casilleros completos. Si el armado manual rompe alguna regla, aparece un aviso amarillo y, al confirmar, la app pregunta si querés guardarlo igual.
+
 ## Reglas implementadas
 
 **Reel (2 locales)**

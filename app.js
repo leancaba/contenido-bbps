@@ -264,17 +264,69 @@ async function guardar() {
 }
 
 /* ---------- Render ---------- */
+function completo(tipo) {
+  const l = actual[tipo];
+  return Array.isArray(l) && l.length === REGLAS[tipo].cantidad && l.every(Boolean);
+}
+
 function renderSlots(tipo, lista, girando = false) {
   const ul = $(`#slots-${tipo}`);
   const n = REGLAS[tipo].cantidad;
   ul.classList.toggle('girando', girando);
   ul.innerHTML = Array.from({ length: n }, (_, i) => {
     const l = lista && lista[i];
+    const attrs = `class="slot${l ? '' : ' vacio'}" type="button" data-accion="elegir" data-tipo="${tipo}" data-index="${i}" ${girando ? 'disabled' : ''}`;
     return l
-      ? `<li>${esc(l.nombre)}<small>${esc(l.categoria)}</small></li>`
-      : `<li class="vacio">—</li>`;
+      ? `<li><button ${attrs} title="Tocá para cambiar este local">${esc(l.nombre)}<small>${esc(l.categoria)}</small></button></li>`
+      : `<li><button ${attrs} title="Tocá para elegir un local">—</button></li>`;
   }).join('');
-  document.querySelector(`.ok[data-tipo="${tipo}"]`).disabled = !actual[tipo] || girando;
+  document.querySelector(`.ok[data-tipo="${tipo}"]`).disabled = !completo(tipo) || girando;
+}
+
+/* Elegir / cambiar un local a mano */
+function ponerEnSlot(tipo, index, valor) {
+  const n = REGLAS[tipo].cantidad;
+  const base = Array.isArray(actual[tipo]) ? [...actual[tipo]] : Array.from({ length: n }, () => null);
+  base.length = n;
+  base[index] = valor;
+  actual[tipo] = base.some(Boolean) ? base : null;
+  renderSlots(tipo, actual[tipo]);
+  renderAvisos(tipo);
+}
+
+/** Avisos cuando el armado manual no cumple alguna regla (igual se puede guardar) */
+function revisar(tipo, lista) {
+  const avisos = [];
+  if (!Array.isArray(lista) || !lista.every(Boolean)) return avisos;
+
+  const repetidos = [...new Set(lista
+    .filter((l, i) => lista.findIndex(x => norm(x.nombre) === norm(l.nombre)) !== i)
+    .map(l => l.nombre))];
+  if (repetidos.length) avisos.push(`${repetidos.join(', ')} está repetido.`);
+
+  const recientes = [...bloqueados(tipo)];
+  const salieron = lista.filter(l => recientes.includes(norm(l.nombre))).map(l => l.nombre);
+  if (salieron.length) avisos.push(`${salieron.join(', ')} ya salió hace poco en ${tipo === 'reel' ? 'Reel' : 'Stories'}.`);
+
+  const moda = lista.filter(l => esModa(l.categoria)).length;
+  if (tipo === 'reel') {
+    const [a, b] = lista;
+    if (!parReelValido(a, b)) {
+      if (norm(a.categoria) === norm(b.categoria)) avisos.push('Los dos son de la misma categoría.');
+      else if (!moda) avisos.push('Falta un local de MODA.');
+      else avisos.push('MODA UNISEX no va con MODA MUJER, MODA HOMBRE ni MODA UNISEX.');
+    }
+  } else if (moda < REGLAS.stories.minimoModa) {
+    avisos.push(`Hay ${moda} ${moda === 1 ? 'local' : 'locales'} de MODA y la regla pide ${REGLAS.stories.minimoModa}.`);
+  }
+  return avisos;
+}
+
+function renderAvisos(tipo) {
+  const msg = $(`#msg-${tipo}`);
+  const avisos = revisar(tipo, actual[tipo]);
+  msg.className = avisos.length ? 'msg aviso' : 'msg';
+  msg.textContent = avisos.join(' ');
 }
 
 function renderHistorial(tipo) {
@@ -365,6 +417,8 @@ function renderPanel() {
 function renderTodo() {
   renderSlots('reel', actual.reel);
   renderSlots('stories', actual.stories);
+  renderAvisos('reel');
+  renderAvisos('stories');
   renderHistorial('reel');
   renderHistorial('stories');
   renderBusqueda();
@@ -387,6 +441,7 @@ const girandoAhora = { reel: false, stories: false };
 async function sortear(tipo, boton) {
   if (girandoAhora[tipo]) return;
   const msg = $(`#msg-${tipo}`);
+  msg.className = 'msg';
   msg.textContent = '';
 
   // en modo servidor refrescamos antes, por si se guardó algo desde otro dispositivo
@@ -398,6 +453,7 @@ async function sortear(tipo, boton) {
   } catch (e) {
     actual[tipo] = null;
     renderSlots(tipo, null);
+    msg.className = 'msg';
     msg.textContent = e.message;
     return;
   }
@@ -414,11 +470,14 @@ async function sortear(tipo, boton) {
   }
   girandoAhora[tipo] = false;
   renderSlots(tipo, resultado);
+  renderAvisos(tipo);
 }
 
 async function confirmar(tipo) {
   const sel = actual[tipo];
-  if (!sel) return;
+  if (!completo(tipo)) return;
+  const avisos = revisar(tipo, sel);
+  if (avisos.length && !confirm(`${avisos.join('\n')}\n\n¿Guardar igual?`)) return;
   const entrada = {
     id: nuevoId(),
     fecha: new Date().toISOString(),
@@ -479,6 +538,63 @@ async function quitarLocal(nombre) {
   }
 }
 
+/* ---------- Selector manual de locales ---------- */
+let picker = { tipo: null, index: -1 };
+
+function abrirPicker(tipo, index) {
+  picker = { tipo, index };
+  $('#picker-titulo').textContent = `${tipo === 'reel' ? 'Reel' : 'Stories'}: casillero ${index + 1}`;
+  $('#picker-buscar').value = '';
+  renderPicker();
+  $('#picker').hidden = false;
+  document.body.style.overflow = 'hidden';
+  $('#picker-buscar').focus();
+}
+
+function cerrarPicker() {
+  $('#picker').hidden = true;
+  document.body.style.overflow = '';
+  const { tipo, index } = picker;
+  picker = { tipo: null, index: -1 };
+  const slot = document.querySelector(`.slot[data-tipo="${tipo}"][data-index="${index}"]`);
+  if (slot) slot.focus();
+}
+
+function renderPicker() {
+  const { tipo, index } = picker;
+  if (!tipo) return;
+  const q = norm($('#picker-buscar').value);
+  const bloq = bloqueados(tipo);
+  const puestos = new Set((actual[tipo] || [])
+    .map((l, i) => (l && i !== index ? norm(l.nombre) : null)).filter(Boolean));
+
+  const lista = [...estado.locales]
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }))
+    .filter(l => !q || norm(l.nombre).includes(q) || norm(l.categoria).includes(q));
+
+  $('#picker-lista').innerHTML = lista.length
+    ? lista.map(l => {
+        const yaEsta = puestos.has(norm(l.nombre));
+        const reciente = bloq.has(norm(l.nombre));
+        const tag = yaEsta ? '<span class="pl-tag">Ya elegido</span>'
+          : reciente ? '<span class="pl-tag alerta">Salió hace poco</span>' : '';
+        return `<li><button type="button" data-accion="tomar" data-nombre="${esc(l.nombre)}" ${yaEsta ? 'disabled' : ''}>
+          <span class="pl-nombre">${esc(l.nombre)}</span>
+          <span class="pl-cat">${esc(l.categoria)}</span>${tag}
+        </button></li>`;
+      }).join('')
+    : '<li class="vacio">No hay locales con ese nombre. Podés agregarlo desde el panel de locales.</li>';
+}
+
+function tomarLocal(nombre) {
+  const { tipo, index } = picker;
+  if (!tipo) return;
+  const l = estado.locales.find(x => norm(x.nombre) === norm(nombre));
+  if (!l) return;
+  ponerEnSlot(tipo, index, { nombre: l.nombre, categoria: l.categoria });
+  cerrarPicker();
+}
+
 function mostrarLogin(error) {
   $('#login').hidden = false;
   $('#msg-login').textContent = error ? 'Contraseña incorrecta.' : '';
@@ -489,10 +605,12 @@ function mostrarLogin(error) {
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-accion]');
   if (!b) return;
-  const { accion, tipo, nombre } = b.dataset;
+  const { accion, tipo, nombre, index } = b.dataset;
   if (accion === 'sortear') sortear(tipo, b);
   if (accion === 'ok') confirmar(tipo);
   if (accion === 'quitar') quitarLocal(nombre);
+  if (accion === 'elegir') abrirPicker(tipo, Number(index));
+  if (accion === 'tomar') tomarLocal(nombre);
 });
 
 $('#buscar').addEventListener('input', renderBusqueda);
@@ -515,7 +633,18 @@ function cerrarPanel() {
   $('#abrir-panel').focus();
 }
 $('#cerrar-panel').addEventListener('click', cerrarPanel);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#panel').hidden) cerrarPanel(); });
+$('#cerrar-picker').addEventListener('click', cerrarPicker);
+$('#picker-buscar').addEventListener('input', renderPicker);
+$('#picker').addEventListener('click', e => { if (e.target === $('#picker')) cerrarPicker(); });
+$('#vaciar-slot').addEventListener('click', () => {
+  const { tipo, index } = picker;
+  if (tipo) { ponerEnSlot(tipo, index, null); cerrarPicker(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#picker').hidden) cerrarPicker();
+  else if (!$('#panel').hidden) cerrarPanel();
+});
 
 $('#form-login').addEventListener('submit', async e => {
   e.preventDefault();
